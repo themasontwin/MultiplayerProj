@@ -1,51 +1,94 @@
 using UnityEngine;
 using Unity.Netcode;
+using System.Collections;
 
 public class PressurePlate : NetworkBehaviour
 {
     public GameObject ringBeamPrefab;
     public Transform spawnPoint;
-    private bool isTriggered = false;
+    public float minCooldownTime = 3f;
+    public float maxCooldownTime = 10f;
+    public float initialDelay = 5f; // Time before the plate turns green initially
+    
+    private NetworkVariable<bool> isActive = new NetworkVariable<bool>(false);
+    private Renderer plateRenderer;
+    private Color activeColor = Color.green;
+    private Color inactiveColor = Color.gray;
+
+    private void Start()
+    {
+        plateRenderer = GetComponent<Renderer>();
+        UpdateColor();
+        
+        // Turn the plate green after an initial delay
+        Invoke(nameof(ActivatePlate), initialDelay);
+    }
 
     private void OnTriggerEnter(Collider other)
     {
-        Debug.Log($"Trigger entered by: {other.gameObject.name}");
-
-        if (other.CompareTag("Player"))
+        if (other.CompareTag("Player") && isActive.Value)
         {
-            Debug.Log("Player detected on pressure plate");
-
-            if (!isTriggered)
-            {
-                Debug.Log("Attempting to spawn RingBeam");
-                isTriggered = true;
-
-                if (ringBeamPrefab != null && spawnPoint != null)
-                {
-                    SpawnRingBeamServerRpc();
-                }
-                else
-                {
-                    Debug.LogError("RingBeam prefab or spawn point is null");
-                }
-            }
+            ActivatePlateServerRpc();
         }
     }
 
     [ServerRpc(RequireOwnership = false)]
-    private void SpawnRingBeamServerRpc()
+    private void ActivatePlateServerRpc()
     {
-        GameObject spawnedRingBeam = Instantiate(ringBeamPrefab, spawnPoint.position, Quaternion.identity);
-        spawnedRingBeam.GetComponent<NetworkObject>().Spawn();
-        Debug.Log("RingBeam spawned");
+        if (isActive.Value)
+        {
+            isActive.Value = false;
+            SpawnRingBeam();
+            StartCoroutine(CooldownCoroutine());
+        }
     }
 
-    private void OnTriggerExit(Collider other)
+    private void SpawnRingBeam()
     {
-        if (other.CompareTag("Player"))
+        if (ringBeamPrefab != null && spawnPoint != null)
         {
-            isTriggered = false;
-            Debug.Log("Player exited pressure plate");
+            GameObject spawnedRingBeam = Instantiate(ringBeamPrefab, spawnPoint.position, Quaternion.identity);
+            spawnedRingBeam.GetComponent<NetworkObject>().Spawn();
+            Debug.Log("RingBeam spawned");
+        }
+        else
+        {
+            Debug.LogError("RingBeam prefab or spawn point is null");
+        }
+    }
+
+    private IEnumerator CooldownCoroutine()
+    {
+        yield return new WaitForSeconds(minCooldownTime);
+        
+        float additionalWaitTime = Random.Range(0, maxCooldownTime - minCooldownTime);
+        yield return new WaitForSeconds(additionalWaitTime);
+
+        isActive.Value = true;
+    }
+
+    private void ActivatePlate()
+    {
+        isActive.Value = true;
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+        isActive.OnValueChanged += OnActiveStateChanged;
+        UpdateColor();
+    }
+
+    private void OnActiveStateChanged(bool previousValue, bool newValue)
+    {
+        UpdateColor();
+    }
+
+    private void UpdateColor()
+    {
+        if (plateRenderer != null)
+        {
+            plateRenderer.material.color = isActive.Value ? activeColor : inactiveColor;
         }
     }
 }
