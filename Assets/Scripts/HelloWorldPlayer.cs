@@ -7,10 +7,12 @@ namespace HelloWorld
     {
         public NetworkVariable<Vector3> Position = new NetworkVariable<Vector3>();
         public float movementSpeed = 5f;
+        private CharacterController controller;
 
         public override void OnNetworkSpawn()
         {
             Position.OnValueChanged += OnStateChanged;
+            controller = GetComponent<CharacterController>();
 
             if (IsServer)
             {
@@ -45,8 +47,12 @@ namespace HelloWorld
         [Rpc(SendTo.Server)]
         void MoveServerRpc(Vector3 direction)
         {
-            Position.Value += direction * movementSpeed * Time.deltaTime;
-            transform.position = Position.Value;
+            if (controller == null) return;
+            direction = direction.normalized;
+            Vector3 movement = new Vector3(direction.x, 0, direction.z) * movementSpeed * Time.deltaTime;
+            controller.Move(movement);
+            Position.Value = transform.position;
+
         }
 
         void OnStateChanged(Vector3 previous, Vector3 current)
