@@ -3,51 +3,55 @@ using UnityEngine;
 
 namespace HelloWorld
 {
-public class HelloWorldPlayer : NetworkBehaviour
-{
-public NetworkVariable<Vector3> Position = new NetworkVariable<Vector3>();
+    public class HelloWorldPlayer : NetworkBehaviour
+    {
+        public NetworkVariable<Vector3> Position = new NetworkVariable<Vector3>();
+        public float movementSpeed = 5f;
 
-public override void OnNetworkSpawn()
-{
-Position.OnValueChanged += OnStateChanged;
+        public override void OnNetworkSpawn()
+        {
+            Position.OnValueChanged += OnStateChanged;
 
-if (IsOwner)
-{
-Move();
-}
-}
+            if (IsServer)
+            {
+                // Get spawn position based on player type
+                Vector3 spawnPos = OwnerClientId == 0 ?
+                    SpawnManager.Instance.hostSpawnPoint.position :
+                    SpawnManager.Instance.clientSpawnPoint.position;
 
-public override void OnNetworkDespawn()
-{
-Position.OnValueChanged -= OnStateChanged;
-}
+                spawnPos.y += 0.4f;
 
-public void OnStateChanged(Vector3 previous, Vector3 current)
-{
-// note: `Position.Value` will be equal to `current` here
-if (Position.Value != previous)
-{
-transform.position = Position.Value;
-}
-}
-// When local player spawns or Move button in UI is pressed
-// RPC call tells server to assign a new position
-public void Move()
-{
-SubmitPositionRequestServerRpc();
-}
+                Position.Value = spawnPos;
+                transform.position = spawnPos;
+            }
+        }
 
-[Rpc(SendTo.Server)]
-void SubmitPositionRequestServerRpc(RpcParams rpcParams = default)
-{
-var randomPosition = GetRandomPositionOnPlane();
-transform.position = randomPosition;
-Position.Value = randomPosition;
-}
+        void Update()
+        {
+            if (!IsOwner) return;
 
-static Vector3 GetRandomPositionOnPlane()
-{
-return new Vector3(Random.Range(-3f, 3f), 1f, Random.Range(-3f, 3f));
-}
-}
+            var moveDirection = new Vector3(
+                Input.GetAxis("Horizontal"),
+                0,
+                Input.GetAxis("Vertical")
+            );
+
+            if (moveDirection != Vector3.zero)
+            {
+                MoveServerRpc(moveDirection);
+            }
+        }
+
+        [Rpc(SendTo.Server)]
+        void MoveServerRpc(Vector3 direction)
+        {
+            Position.Value += direction * movementSpeed * Time.deltaTime;
+            transform.position = Position.Value;
+        }
+
+        void OnStateChanged(Vector3 previous, Vector3 current)
+        {
+            transform.position = current;
+        }
+    }
 }
