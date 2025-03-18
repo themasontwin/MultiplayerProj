@@ -5,19 +5,21 @@ using System.Collections.Generic;
 
 public class ExpandingRing : NetworkBehaviour
 {
-    public float expandSpeed = 1.0f;  // Speed at which the ring expands
-    public float maxSize = 10.0f;     // Maximum expansion size
-    public float thickness = 0.5f;    // Thickness of the ring
-    private float currentSize = 1.0f; // Initial ring size
+    public float expandSpeed = 1.0f;  
+    public float maxSize = 10.0f;     
+    public float thickness = 0.5f;    
+    private float currentSize = 1.0f; // Starting size for the ring
 
     private Transform topWall, bottomWall, leftWall, rightWall;
 
+    // Network variable to check which player activated the ring
     public NetworkVariable<ulong> ActivatorClientId = new NetworkVariable<ulong>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // Keeps track of players scored on this ring
     private HashSet<ulong> scoredPlayers = new HashSet<ulong>();
 
     void Start()
     {
-        // Find the four walls based on object names
+        // Walls based on object names
         topWall = transform.Find("Top");
         bottomWall = transform.Find("Bottom");
         leftWall = transform.Find("Left");
@@ -32,6 +34,7 @@ public class ExpandingRing : NetworkBehaviour
 
     void Update()
     {
+        // Keep expanding until it reaches max size
         if (currentSize < maxSize)
         {
             currentSize += expandSpeed * Time.deltaTime;
@@ -39,6 +42,7 @@ public class ExpandingRing : NetworkBehaviour
         }
     }
 
+    // When ring collides with something
     private void OnTriggerEnter(Collider other)
     {
         Debug.Log($"ExpandingRing hit something: {other.gameObject.name}");
@@ -49,6 +53,7 @@ public class ExpandingRing : NetworkBehaviour
             return;
         }
 
+        // Checks if collision is with a player
         if (other.CompareTag("Player"))
         {
             var playerNetworkObject = other.GetComponent<NetworkObject>();
@@ -82,11 +87,12 @@ public class ExpandingRing : NetworkBehaviour
     [ServerRpc]
     private void UpdateScoreServerRpc(ulong hitClientId)
     {
-        // Determine who should score: the player who did NOT get hit
+        // The player who doesn't get hit scores
         ulong scoringClientId = (hitClientId == ActivatorClientId.Value) ? GetOtherPlayerId(hitClientId) : ActivatorClientId.Value;
 
         Debug.Log($"UpdateScoreServerRpc called. Hit player: {hitClientId}, Scoring player: {scoringClientId}");
 
+        // Tries to find the scoring player
         if (NetworkManager.Singleton.ConnectedClients.TryGetValue(scoringClientId, out var scoringClient))
         {
             var scoringPlayer = scoringClient.PlayerObject.GetComponent<HelloWorldPlayer>();
@@ -143,7 +149,7 @@ public class ExpandingRing : NetworkBehaviour
         float halfSize = currentSize / 2;
         float halfThickness = thickness / 2;
 
-        // Update horizontal walls (Top & Bottom)
+        // Updates Top and Bottom
         if (topWall && bottomWall)
         {
             topWall.localScale = new Vector3(currentSize + thickness, topWall.localScale.y, thickness);
@@ -153,7 +159,7 @@ public class ExpandingRing : NetworkBehaviour
             bottomWall.localPosition = new Vector3(0, 0, -halfSize);
         }
 
-        // Update vertical walls (Left & Right)
+        // Updates Left and Right
         if (leftWall && rightWall)
         {
             leftWall.localScale = new Vector3(thickness, leftWall.localScale.y, currentSize + thickness);

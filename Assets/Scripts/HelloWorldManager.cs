@@ -42,6 +42,8 @@ namespace HelloWorld
             serverButton.clicked += OnServerButtonClicked;
             //moveButton.clicked += SubmitNewPosition;
 
+            // Labels for score display both Host and Client starting at 0
+
             hostScoreLabel = CreateScoreLabel("HostScore", "Host: 0", 10);
             clientScoreLabel = CreateScoreLabel("ClientScore", "Client: 0", 40);
             rootVisualElement.Add(hostScoreLabel);
@@ -90,6 +92,8 @@ namespace HelloWorld
                     continue;
                 }
 
+                // Follows score changes for player and updates UI
+
                 if (!players.ContainsKey(kvp.Key))
                 {
                     players[kvp.Key] = player;
@@ -101,6 +105,7 @@ namespace HelloWorld
             UpdateAllScores();
         }
 
+        // Makes sure scores are updates for all players
         void UpdateAllScores()
         {
             foreach (var kvp in players)
@@ -109,7 +114,7 @@ namespace HelloWorld
             }
         }
 
-        
+        // Updates score based on player
         public void UpdateScoreDisplay(ulong clientId, int previous, int current)
         {
             Debug.Log($"Updating UI - Client {clientId}, Previous: {previous}, Current: {current}");

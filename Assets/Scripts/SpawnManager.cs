@@ -4,13 +4,15 @@ public class SpawnManager : MonoBehaviour
 {
     public static SpawnManager Instance;
 
-    public Transform hostSpawnPoint;
+    public Transform hostSpawnPoint; // Where host spawns
 
-    public Transform clientSpawnPoint;
+    public Transform clientSpawnPoint; // Where client spawns
 
 
     void Awake()
     {
+
+        // Makes sure only one spawn manager exists
         if (Instance == null)
         {
             Instance = this;

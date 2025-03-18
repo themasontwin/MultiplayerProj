@@ -5,6 +5,7 @@ namespace HelloWorld
 {
     public class HelloWorldPlayer : NetworkBehaviour
     {
+        // Synced network variables
         public NetworkVariable<Vector3> Position = new NetworkVariable<Vector3>();
         public NetworkVariable<bool> IsJumping = new NetworkVariable<bool>(false); // Synchronize jump state
         public NetworkVariable<int> Score = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -16,15 +17,15 @@ namespace HelloWorld
         
         private CharacterController controller;
         private float jumpTimer;
-        private const float GROUND_Y = 0.4f;
+        private const float GROUND_Y = 0.4f; // Player prefab is fully above the ground
 
         public override void OnNetworkSpawn()
         {
             Position.OnValueChanged += OnStateChanged;
-            IsJumping.OnValueChanged += OnJumpStateChanged; // Listen for jump state changes
+            IsJumping.OnValueChanged += OnJumpStateChanged; // Looks for jump state changes
             controller = GetComponent<CharacterController>();
 
-            if (IsServer)
+            if (IsServer) // Server handles spawn positions
             {
                 Vector3 spawnPos = OwnerClientId == 0 ?
                     SpawnManager.Instance.hostSpawnPoint.position :
@@ -32,6 +33,8 @@ namespace HelloWorld
 
                 spawnPos.y = GROUND_Y;
                 
+
+                // Disables controller to put players in correct position
                 controller.enabled = false;
                 transform.position = spawnPos;
                 controller.enabled = true;
@@ -42,6 +45,7 @@ namespace HelloWorld
 
         void Update()
         {
+            // Checks if you control your own player
             if (!IsOwner) return;
 
             var moveDirection = new Vector3(
@@ -75,24 +79,24 @@ namespace HelloWorld
 
             Vector3 movement = direction.normalized * movementSpeed * Time.deltaTime;
 
-            if (IsJumping.Value)
+            if (IsJumping.Value) // Jump physics
             {
                 jumpTimer += Time.deltaTime;
                 float jumpProgress = jumpTimer / jumpDuration;
 
                 if (jumpProgress < 1f)
                 {
-                    // Simple parabolic jump
+                    // Parabolic jump
                     float jumpY = GROUND_Y + jumpHeight * 4f * (jumpProgress - jumpProgress * jumpProgress);
                     movement.y = jumpY - transform.position.y;
                 }
-                else
+                else // End of jump
                 {
                     IsJumping.Value = false; // Reset jumping state when done
                     movement.y = GROUND_Y - transform.position.y;
                 }
             }
-            else
+            else // Normal movement
             {
                 movement.y = GROUND_Y - transform.position.y;
             }
@@ -107,9 +111,11 @@ namespace HelloWorld
             transform.position = current;
         }
 
+
+        // Makes sure Player lands back on the 0.4 ground level when jump ends
         private void OnJumpStateChanged(bool previous, bool current)
         {
-            if (!current) // If jumping has ended, ensure Y position is clamped to ground
+            if (!current) 
             {
                 Vector3 pos = transform.position;
                 pos.y = GROUND_Y;

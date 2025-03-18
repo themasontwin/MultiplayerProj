@@ -5,14 +5,14 @@ using System.Collections;
 public class PressurePlate : NetworkBehaviour
 {
     public GameObject ringBeamPrefab;
-    public Transform spawnPoint;
+    public Transform spawnPoint; // Where ring beam will spawn
     public float minCooldownTime = 3f;
     public float maxCooldownTime = 10f;
-    public float initialDelay = 5f; // Time before the plate turns green initially
+    public float initialDelay = 5f; // Time before the plate turns green once both players have joined
 
     private NetworkVariable<bool> isActive = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private Renderer plateRenderer;
-    private Color activeColor = Color.green;
+    private Color activeColor = Color.green; // Ready to fire Ring Beam
     private Color inactiveColor = Color.gray;
 
     public override void OnNetworkSpawn()
@@ -37,8 +37,10 @@ public class PressurePlate : NetworkBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        //Check to make sure its the server, and to make sure its a player
+        //Check to make sure its the server
         if (!IsServer) return;
+
+        // Check if the pressure plate is active and it's the player
 
         if (other.CompareTag("Player") && isActive.Value)
         {
@@ -53,16 +55,18 @@ public class PressurePlate : NetworkBehaviour
         {
             //Set isActive to false since plate is being pressed
             isActive.Value = false;
-            //Spawn the Ringbeam from this
+
+            //Spawns the ringbeam from this
             SpawnRingBeam(rpcParams.Receive.SenderClientId);
-            //Restart the cooldown co-routine
+
+            //restart the randomized cooldown between 3 and 10 seconds
             StartCoroutine(CooldownCoroutine());
         }
     }
 
     private void SpawnRingBeam(ulong activatorClientId)
     {
-        if (ringBeamPrefab != null && spawnPoint != null)
+        if (ringBeamPrefab != null && spawnPoint != null) // Checks if ring beam prefab and spawn point object are assigned
         {
             GameObject spawnedRingBeam = Instantiate(ringBeamPrefab, spawnPoint.position, Quaternion.identity);
             var ringBeam = spawnedRingBeam.GetComponent<ExpandingRing>();
@@ -75,16 +79,17 @@ public class PressurePlate : NetworkBehaviour
     {
         //Wait the minimum cooldown Time
         yield return new WaitForSeconds(minCooldownTime);
-        //Wait for any extra wait time
+        
+        // Waits a random amount of time between max and min cooldown
         float additionalWaitTime = Random.Range(0, maxCooldownTime - minCooldownTime);
         yield return new WaitForSeconds(additionalWaitTime);
 
-        //Activate The plate and set the value
+        //Activate the place after cooldown
         ActivatePlate();
         isActive.Value = true;
     }
 
-    //No longer required here, all activation is handled in OnNetworkSpawn
+    
     private void ActivatePlate()
     {
         isActive.Value = true;
