@@ -43,7 +43,11 @@ public class ExpandingRing : NetworkBehaviour
     {
         Debug.Log($"ExpandingRing hit something: {other.gameObject.name}");
 
-        if (!IsServer) return;
+        if (!IsServer) 
+        {
+            Debug.Log("Not server, returning");
+            return;
+        }
 
         if (other.CompareTag("Player"))
         {
@@ -54,54 +58,84 @@ public class ExpandingRing : NetworkBehaviour
                 return;
             }
 
-            var player = playerNetworkObject.GetComponent<HelloWorldPlayer>();
-            if (player == null) 
-            {
-                Debug.LogError($"ExpandingRing: No HelloWorldPlayer found on {other.gameObject.name}");
-                return;
-            }
-
             ulong hitClientId = playerNetworkObject.OwnerClientId;
             Debug.Log($"Player {hitClientId} hit by ring. Activator was {ActivatorClientId.Value}");
 
-            if (hitClientId != ActivatorClientId.Value && !scoredPlayers.Contains(hitClientId))
+            // Allow scoring even if hitClientId is the same as ActivatorClientId
+            if (!scoredPlayers.Contains(hitClientId))
             {
+                Debug.Log($"Calling UpdateScoreServerRpc with hitClientId: {hitClientId}");
                 scoredPlayers.Add(hitClientId);
-                UpdateScoreServerRpc(hitClientId); // Send hit player ID instead of activator
+                UpdateScoreServerRpc(hitClientId);
+            }
+            else
+            {
+                Debug.Log($"Not updating score. hitClientId: {hitClientId}, Already scored: {scoredPlayers.Contains(hitClientId)}");
             }
         }
+        else
+        {
+            Debug.Log($"Hit object is not a player: {other.gameObject.name}");
+        }
     }
-
-
 
     [ServerRpc]
     private void UpdateScoreServerRpc(ulong hitClientId)
     {
-        ulong targetClientId = (hitClientId == 0) ? 1UL : 0UL;
+        // Determine who should score: the player who did NOT get hit
+        ulong scoringClientId = (hitClientId == ActivatorClientId.Value) ? GetOtherPlayerId(hitClientId) : ActivatorClientId.Value;
 
-        if (NetworkManager.Singleton.ConnectedClients.TryGetValue(targetClientId, out var targetClient))
+        Debug.Log($"UpdateScoreServerRpc called. Hit player: {hitClientId}, Scoring player: {scoringClientId}");
+
+        if (NetworkManager.Singleton.ConnectedClients.TryGetValue(scoringClientId, out var scoringClient))
         {
-            var player = targetClient.PlayerObject.GetComponent<HelloWorldPlayer>();
-            if (player != null)
+            var scoringPlayer = scoringClient.PlayerObject.GetComponent<HelloWorldPlayer>();
+            if (scoringPlayer != null)
             {
-                player.Score.Value += 1;
-                UpdateScoreClientRpc(targetClientId, player.Score.Value);
+                scoringPlayer.Score.Value += 1;
+                Debug.Log($"Increased score for player {scoringClientId}. New score: {scoringPlayer.Score.Value}");
+
+                // Inform all clients about the updated score
+                UpdateScoreClientRpc(scoringClientId, scoringPlayer.Score.Value);
             }
+            else
+            {
+                Debug.LogError($"HelloWorldPlayer component not found for client {scoringClientId}");
+            }
+        }
+        else
+        {
+            Debug.LogError($"Client {scoringClientId} not found in ConnectedClients");
         }
     }
 
     [ClientRpc]
     private void UpdateScoreClientRpc(ulong clientId, int newScore)
     {
-        Debug.Log($"Updating score for client {clientId} to {newScore}");
-        if (NetworkManager.Singleton.LocalClientId == clientId)
+        Debug.Log($"UpdateScoreClientRpc: Updating score for client {clientId} to {newScore}");
+
+        // Find the HelloWorldManager and update the UI
+        var manager = Object.FindFirstObjectByType<HelloWorldManager>();
+        if (manager != null)
         {
-            var localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<HelloWorldPlayer>();
-            if (localPlayer != null)
-            {
-                localPlayer.Score.Value = newScore;
-            }
+            manager.UpdateScoreDisplay(clientId, 0, newScore);
         }
+        else
+        {
+            Debug.LogError("HelloWorldManager not found in the scene");
+        }
+    }
+
+    private ulong GetOtherPlayerId(ulong currentPlayerId)
+    {
+        foreach (var client in NetworkManager.Singleton.ConnectedClients)
+        {
+            if (client.Key != currentPlayerId)
+                return client.Key;
+        }
+
+        Debug.LogError("GetOtherPlayerId: Could not find another player!");
+        return currentPlayerId; // Fallback to avoid errors
     }
 
     void UpdateRing()

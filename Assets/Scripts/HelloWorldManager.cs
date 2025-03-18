@@ -110,7 +110,7 @@ namespace HelloWorld
         }
 
         
-        void UpdateScoreDisplay(ulong clientId, int previous, int current)
+        public void UpdateScoreDisplay(ulong clientId, int previous, int current)
         {
             Debug.Log($"Updating UI - Client {clientId}, Previous: {previous}, Current: {current}");
             if (clientId == 0)

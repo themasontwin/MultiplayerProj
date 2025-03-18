@@ -10,7 +10,7 @@ namespace HelloWorld
         public NetworkVariable<int> Score = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
 
-        public float movementSpeed = 5f;
+        public float movementSpeed = 0.6f;
         public float jumpHeight = 0.3f; // Jump height above GROUND_Y
         public float jumpDuration = 0.5f; // Time to reach peak of jump
         
