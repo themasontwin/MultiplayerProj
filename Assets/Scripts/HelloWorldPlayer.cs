@@ -7,6 +7,8 @@ namespace HelloWorld
     {
         public NetworkVariable<Vector3> Position = new NetworkVariable<Vector3>();
         public NetworkVariable<bool> IsJumping = new NetworkVariable<bool>(false); // Synchronize jump state
+        public NetworkVariable<int> Score = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
 
         public float movementSpeed = 5f;
         public float jumpHeight = 0.3f; // Jump height above GROUND_Y

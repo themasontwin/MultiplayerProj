@@ -779,9 +779,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6695da4f0babebb43acbb991d627f7ed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   expandSpeed: 2
   maxSize: 10
   thickness: 0.1
+  ActivatorClientId:
+    m_InternalValue: 0
 --- !u!4 &337221303
 Transform:
   m_ObjectHideFlags: 0
@@ -4625,9 +4628,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6695da4f0babebb43acbb991d627f7ed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   expandSpeed: 1
   maxSize: 5
   thickness: 0.1
+  ActivatorClientId:
+    m_InternalValue: 0
 --- !u!4 &2106239406
 Transform:
   m_ObjectHideFlags: 0

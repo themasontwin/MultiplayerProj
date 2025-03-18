@@ -2,6 +2,7 @@ using System;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UIElements;
+using System.Collections.Generic;
 
 namespace HelloWorld
 {
@@ -13,6 +14,10 @@ namespace HelloWorld
         Button serverButton;
         //Button moveButton;
         Label statusLabel;
+
+        private Label hostScoreLabel;
+        private Label clientScoreLabel;
+        private Dictionary<ulong, HelloWorldPlayer> players = new Dictionary<ulong, HelloWorldPlayer>();
 
         void OnEnable()
         {
@@ -29,19 +34,101 @@ namespace HelloWorld
             rootVisualElement.Add(hostButton);
             rootVisualElement.Add(clientButton);
             rootVisualElement.Add(serverButton);
-            //rootVisualElement.Add(moveButton);
+            //moveButton = CreateButton("MoveButton", "Move");
             rootVisualElement.Add(statusLabel);
             
             hostButton.clicked += OnHostButtonClicked;
             clientButton.clicked += OnClientButtonClicked;
             serverButton.clicked += OnServerButtonClicked;
             //moveButton.clicked += SubmitNewPosition;
+
+            hostScoreLabel = CreateScoreLabel("HostScore", "Host: 0", 10);
+            clientScoreLabel = CreateScoreLabel("ClientScore", "Client: 0", 40);
+            rootVisualElement.Add(hostScoreLabel);
+            rootVisualElement.Add(clientScoreLabel);
+
+            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+
         }
+
+        Label CreateScoreLabel(string name, string text, float topOffset)
+        {
+            var label = new Label
+            {
+                name = name,
+                text = text,
+                style = 
+                {
+                    position = Position.Absolute,
+                    top = topOffset,
+                    left = new Length(50f, LengthUnit.Percent),
+                    color = Color.black,
+                    fontSize = 24,
+                    unityTextAlign = TextAnchor.UpperCenter
+                }
+            };
+            return label;
+        }
+
+        void OnClientConnected(ulong clientId)
+        {
+            Debug.Log($"Client connected: {clientId}");
+
+            foreach (var kvp in NetworkManager.Singleton.ConnectedClients)
+            {
+                var playerObject = kvp.Value.PlayerObject;
+                if (playerObject == null)
+                {
+                    Debug.LogError($"Player object not found for client: {kvp.Key}");
+                    continue;
+                }
+
+                var player = playerObject.GetComponent<HelloWorldPlayer>();
+                if (player == null)
+                {
+                    Debug.LogError($"HelloWorldPlayer component not found on client: {kvp.Key}");
+                    continue;
+                }
+
+                if (!players.ContainsKey(kvp.Key))
+                {
+                    players[kvp.Key] = player;
+                    player.Score.OnValueChanged += (prev, current) => UpdateScoreDisplay(kvp.Key, prev, current);
+                    Debug.Log($"Subscribed to score changes for client: {kvp.Key}");
+                }
+            }
+
+            UpdateAllScores();
+        }
+
+        void UpdateAllScores()
+        {
+            foreach (var kvp in players)
+            {
+                UpdateScoreDisplay(kvp.Key, 0, kvp.Value.Score.Value);
+            }
+        }
+
+        
+        void UpdateScoreDisplay(ulong clientId, int previous, int current)
+        {
+            Debug.Log($"Updating UI - Client {clientId}, Previous: {previous}, Current: {current}");
+            if (clientId == 0)
+            {
+                hostScoreLabel.text = $"Host: {current}";
+            }
+            else
+            {
+                clientScoreLabel.text = $"Client: {current}";
+            }
+        }
+
 
         void Update()
         {
             UpdateUI();
         }
+
         
         void OnDisable()
         {
@@ -49,6 +136,11 @@ namespace HelloWorld
             clientButton.clicked -= OnClientButtonClicked;
             serverButton.clicked -= OnServerButtonClicked;
             //moveButton.clicked -= SubmitNewPosition;
+
+             if (NetworkManager.Singleton != null)
+            {
+                NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+            }
         }
 
         void OnHostButtonClicked() => NetworkManager.Singleton.StartHost();
@@ -126,7 +218,7 @@ namespace HelloWorld
 
         void UpdateStatusLabels()
         {
-            var mode = NetworkManager.Singleton.IsHost ? "Host" : NetworkManager.Singleton.IsServer ? "Server" : "Client";
+            var mode = NetworkManager.Singleton.IsHost ? "Host" : NetworkManager.Singleton.IsServer ? "Client" : "Client";
             string transport = "Transport: " + NetworkManager.Singleton.NetworkConfig.NetworkTransport.GetType().Name;
             string modeText = "Mode: " + mode;
             SetStatusText($"{transport}\n{modeText}");
